@@ -5,11 +5,12 @@ from pydantic import BaseModel, EmailStr
 from typing import Optional, List
 import asyncpg
 import uuid
+import os
 from datetime import datetime, date
 from contextlib import asynccontextmanager
 
 # Configuração do banco
-DATABASE_URL = "postgres://neondb_owner:npg_EuloKk2PDvj3@ep-steep-morning-acb05ltn-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require"
+DATABASE_URL = os.getenv("DATABASE_URL", "postgres://neondb_owner:npg_EuloKk2PDvj3@ep-steep-morning-acb05ltn-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require")
 
 # Pool de conexões
 pool = None
