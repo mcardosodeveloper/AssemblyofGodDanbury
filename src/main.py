@@ -1,16 +1,38 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel, EmailStr
 from typing import Optional, List
+from jose import JWTError, jwt
+from passlib.context import CryptContext
 import asyncpg
 import uuid
 import os
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from contextlib import asynccontextmanager
 
 # Configuração do banco
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://neondb_owner:npg_EuloKk2PDvj3@ep-steep-morning-acb05ltn-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require")
+
+# Configuração JWT
+SECRET_KEY = os.getenv("JWT_SECRET_KEY", "sua-chave-secreta-muito-segura-aqui-123456789")
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+# Configuração de senha
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+security = HTTPBearer()
+
+# Usuários simples (em produção, use banco de dados)
+USERS = {
+    "admin": {
+        "username": "admin",
+        "password": pwd_context.hash("admin123"),  # Senha: admin123
+        "role": "admin"
+    }
+}
 
 # Função para obter conexão
 async def get_connection():
@@ -60,6 +82,55 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Modelos de Autenticação
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+# Funções de Autenticação
+def verify_password(plain_password, hashed_password):
+    return pwd_context.verify(plain_password, hashed_password)
+
+def authenticate_user(username: str, password: str):
+    user = USERS.get(username)
+    if not user or not verify_password(password, user["password"]):
+        return False
+    return user
+
+def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+    to_encode = data.copy()
+    if expires_delta:
+        expire = datetime.utcnow() + expires_delta
+    else:
+        expire = datetime.utcnow() + timedelta(minutes=15)
+    to_encode.update({"exp": expire})
+    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Token inválido",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        token = credentials.credentials
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except JWTError:
+        raise credentials_exception
+    
+    user = USERS.get(username)
+    if user is None:
+        raise credentials_exception
+    return user
+
 # Modelos Pydantic
 class CadastroCreate(BaseModel):
     nome: str
@@ -104,21 +175,49 @@ class CadastroResponse(BaseModel):
 
 @app.get("/")
 async def root():
+    """Servir página de login"""
+    return FileResponse("index.html", media_type="text/html")
+
+@app.get("/api")
+async def api_info():
     return {
         "message": "Sistema de Cadastro Igreja - CRUD Simples",
         "status": "online",
         "endpoints": {
-            "criar": "POST /api/cadastro",
-            "listar": "GET /api/cadastros",
-            "obter": "GET /api/cadastro/{id}",
-            "atualizar": "PUT /api/cadastro/{id}",
-            "deletar": "DELETE /api/cadastro/{id}",
-            "estatisticas": "GET /api/stats"
-        }
+            "login": "POST /api/login",
+            "criar": "POST /api/cadastro (protegido)",
+            "listar": "GET /api/cadastros (protegido)",
+            "obter": "GET /api/cadastro/{id} (protegido)",
+            "atualizar": "PUT /api/cadastro/{id} (protegido)",
+            "deletar": "DELETE /api/cadastro/{id} (protegido)",
+            "estatisticas": "GET /api/stats (protegido)"
+        },
+        "interface": "GET /cadastros - Interface web para visualizar cadastros (protegida)"
     }
 
+@app.post("/api/login", response_model=Token)
+async def login(user_credentials: UserLogin):
+    """Fazer login e obter token JWT"""
+    user = authenticate_user(user_credentials.username, user_credentials.password)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Credenciais inválidas",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user["username"]}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer"}
+
+@app.get("/cadastros")
+async def pagina_cadastros(current_user: dict = Depends(get_current_user)):
+    """Servir página de listagem de cadastros (protegida)"""
+    return FileResponse("cadastros.html", media_type="text/html")
+
 @app.post("/api/cadastro", response_model=dict)
-async def criar_cadastro(cadastro: CadastroCreate):
+async def criar_cadastro(cadastro: CadastroCreate, current_user: dict = Depends(get_current_user)):
     """Criar novo cadastro"""
     conn = await get_connection()
     try:
@@ -167,7 +266,8 @@ async def listar_cadastros(
     limit: int = 50,
     offset: int = 0,
     nome: Optional[str] = None,
-    interesse: Optional[str] = None
+    interesse: Optional[str] = None,
+    current_user: dict = Depends(get_current_user)
 ):
     """Listar cadastros com filtros opcionais"""
     conn = await get_connection()
@@ -215,7 +315,7 @@ async def listar_cadastros(
         await conn.close()
 
 @app.get("/api/cadastro/{cadastro_id}", response_model=CadastroResponse)
-async def obter_cadastro(cadastro_id: uuid.UUID):
+async def obter_cadastro(cadastro_id: uuid.UUID, current_user: dict = Depends(get_current_user)):
     """Obter cadastro por ID"""
     conn = await get_connection()
     try:
@@ -237,7 +337,7 @@ async def obter_cadastro(cadastro_id: uuid.UUID):
         await conn.close()
 
 @app.put("/api/cadastro/{cadastro_id}", response_model=dict)
-async def atualizar_cadastro(cadastro_id: uuid.UUID, cadastro: CadastroUpdate):
+async def atualizar_cadastro(cadastro_id: uuid.UUID, cadastro: CadastroUpdate, current_user: dict = Depends(get_current_user)):
     """Atualizar cadastro existente"""
     conn = await get_connection()
     try:
@@ -303,7 +403,7 @@ async def atualizar_cadastro(cadastro_id: uuid.UUID, cadastro: CadastroUpdate):
         await conn.close()
 
 @app.delete("/api/cadastro/{cadastro_id}", response_model=dict)
-async def deletar_cadastro(cadastro_id: uuid.UUID):
+async def deletar_cadastro(cadastro_id: uuid.UUID, current_user: dict = Depends(get_current_user)):
     """Deletar cadastro"""
     conn = await get_connection()
     try:
@@ -328,7 +428,7 @@ async def deletar_cadastro(cadastro_id: uuid.UUID):
         await conn.close()
 
 @app.get("/api/stats")
-async def obter_estatisticas():
+async def obter_estatisticas(current_user: dict = Depends(get_current_user)):
     """Estatísticas dos cadastros"""
     conn = await get_connection()
     try:

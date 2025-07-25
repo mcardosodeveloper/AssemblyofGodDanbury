@@ -1,0 +1,692 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lista de Cadastros - Assembly of God Danbury</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #2c3e50, #4a6741);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+
+        .header p {
+            font-size: 1.1rem;
+            opacity: 0.9;
+        }
+
+        .filters {
+            padding: 30px;
+            background: #f8f9fa;
+            border-bottom: 1px solid #dee2e6;
+            display: flex;
+            gap: 20px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .filter-group {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+
+        .filter-group label {
+            font-weight: 600;
+            color: #495057;
+            font-size: 0.9rem;
+        }
+
+        .filter-group input, .filter-group select {
+            padding: 10px;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            font-size: 1rem;
+            transition: border-color 0.3s;
+        }
+
+        .filter-group input:focus, .filter-group select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .btn {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 1rem;
+            font-weight: 600;
+            transition: all 0.3s;
+            text-decoration: none;
+            display: inline-block;
+            text-align: center;
+        }
+
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+
+        .btn-primary:hover {
+            background: #5a6fd8;
+            transform: translateY(-2px);
+        }
+
+        .btn-success {
+            background: #28a745;
+            color: white;
+            font-size: 0.9rem;
+            padding: 8px 15px;
+        }
+
+        .btn-success:hover {
+            background: #218838;
+        }
+
+        .btn-danger {
+            background: #dc3545;
+            color: white;
+            font-size: 0.9rem;
+            padding: 8px 15px;
+        }
+
+        .btn-danger:hover {
+            background: #c82333;
+        }
+
+        .stats {
+            padding: 20px 30px;
+            background: #e3f2fd;
+            display: flex;
+            gap: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 15px;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            min-width: 120px;
+        }
+
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 0.9rem;
+            color: #6c757d;
+            margin-top: 5px;
+        }
+
+        .table-container {
+            padding: 30px;
+            overflow-x: auto;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        th {
+            background: #667eea;
+            color: white;
+            padding: 15px 10px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.95rem;
+        }
+
+        td {
+            padding: 12px 10px;
+            border-bottom: 1px solid #f1f1f1;
+            font-size: 0.9rem;
+        }
+
+        tr:hover {
+            background: #f8f9ff;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 50px;
+            font-size: 1.2rem;
+            color: #6c757d;
+        }
+
+        .error {
+            text-align: center;
+            padding: 50px;
+            color: #dc3545;
+            font-size: 1.1rem;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 50px;
+            color: #6c757d;
+            font-size: 1.1rem;
+        }
+
+        .actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .pagination {
+            padding: 20px;
+            text-align: center;
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .page-info {
+            margin: 0 15px;
+            color: #6c757d;
+            font-weight: 600;
+        }
+
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2rem;
+            }
+            
+            .filters {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .stats {
+                justify-content: center;
+            }
+            
+            .table-container {
+                padding: 15px;
+            }
+            
+            table {
+                font-size: 0.8rem;
+            }
+            
+            th, td {
+                padding: 8px 5px;
+            }
+        }
+
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+
+        .modal-content {
+            background-color: white;
+            margin: 5% auto;
+            padding: 30px;
+            border-radius: 15px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 2px solid #e9ecef;
+        }
+
+        .close {
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #aaa;
+        }
+
+        .close:hover {
+            color: #000;
+        }
+
+        .detail-row {
+            display: flex;
+            margin-bottom: 15px;
+            padding: 10px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .detail-label {
+            font-weight: bold;
+            width: 150px;
+            color: #495057;
+        }
+
+        .detail-value {
+            flex: 1;
+            color: #212529;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>Lista de Cadastros</h1>
+            <p>Assembly of God Danbury - Sistema de Gerenciamento</p>
+            <button class="btn btn-danger" onclick="logout()" style="position: absolute; top: 20px; right: 20px; width: auto; padding: 10px 20px;">Sair</button>
+        </div>
+
+        <!-- Estatísticas -->
+        <div class="stats" id="stats">
+            <div class="stat-item">
+                <div class="stat-number" id="totalCadastros">-</div>
+                <div class="stat-label">Total de Cadastros</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="cadastrosHoje">-</div>
+                <div class="stat-label">Cadastros Hoje</div>
+            </div>
+            <div class="stat-item">
+                <div class="stat-number" id="comEmail">-</div>
+                <div class="stat-label">Com E-mail</div>
+            </div>
+        </div>
+
+        <!-- Filtros -->
+        <div class="filters">
+            <div class="filter-group">
+                <label for="filtroNome">Buscar por Nome:</label>
+                <input type="text" id="filtroNome" placeholder="Digite o nome...">
+            </div>
+            <div class="filter-group">
+                <label for="filtroInteresse">Interesse:</label>
+                <select id="filtroInteresse">
+                    <option value="">Todos</option>
+                    <option value="Batismo">Batismo</option>
+                    <option value="Casamento">Casamento</option>
+                    <option value="Oração">Oração</option>
+                    <option value="Estudo Bíblico">Estudo Bíblico</option>
+                    <option value="Outro">Outro</option>
+                </select>
+            </div>
+            <button class="btn btn-primary" onclick="buscarCadastros()">Buscar</button>
+            <button class="btn btn-primary" onclick="limparFiltros()">Limpar</button>
+        </div>
+
+        <!-- Tabela -->
+        <div class="table-container">
+            <div id="loading" class="loading">Carregando cadastros...</div>
+            <div id="error" class="error" style="display: none;"></div>
+            <div id="empty" class="empty" style="display: none;">Nenhum cadastro encontrado.</div>
+            
+            <table id="tabelaCadastros" style="display: none;">
+                <thead>
+                    <tr>
+                        <th>Nome</th>
+                        <th>Telefone</th>
+                        <th>E-mail</th>
+                        <th>Interesse</th>
+                        <th>Data Cadastro</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody id="corpoTabela">
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Paginação -->
+        <div class="pagination">
+            <button class="btn btn-primary" id="btnAnterior" onclick="paginaAnterior()">Anterior</button>
+            <span class="page-info" id="paginaInfo">Página 1</span>
+            <button class="btn btn-primary" id="btnProximo" onclick="proximaPagina()">Próximo</button>
+        </div>
+    </div>
+
+    <!-- Modal de Detalhes -->
+    <div id="modalDetalhes" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Detalhes do Cadastro</h2>
+                <span class="close" onclick="fecharModal()">&times;</span>
+            </div>
+            <div id="detalhesConteudo">
+                <!-- Conteúdo será preenchido via JavaScript -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configurações
+        const API_BASE = 'https://assemblyof-god-danbury-qrgn.vercel.app';
+        let paginaAtual = 1;
+        const itensPorPagina = 10;
+        let cadastrosCarregados = [];
+
+        // Carregar dados quando a página carrega
+        document.addEventListener('DOMContentLoaded', function() {
+            // Verificar autenticação
+            const token = localStorage.getItem('authToken');
+            if (!token) {
+                window.location.href = '/';
+                return;
+            }
+            
+            carregarEstatisticas();
+            buscarCadastros();
+        });
+
+        // Função para obter headers de autenticação
+        function getAuthHeaders() {
+            const token = localStorage.getItem('authToken');
+            return {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+            };
+        }
+
+        // Função para logout
+        function logout() {
+            localStorage.removeItem('authToken');
+            window.location.href = '/';
+        }
+
+        // Função para carregar estatísticas
+        async function carregarEstatisticas() {
+            try {
+                const response = await fetch(`${API_BASE}/api/stats`, {
+                    headers: getAuthHeaders()
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        logout();
+                        return;
+                    }
+                    throw new Error('Erro ao carregar estatísticas');
+                }
+                
+                const stats = await response.json();
+                
+                document.getElementById('totalCadastros').textContent = stats.total_cadastros || 0;
+                document.getElementById('cadastrosHoje').textContent = stats.cadastros_hoje || 0;
+                document.getElementById('comEmail').textContent = stats.com_email || 0;
+            } catch (error) {
+                console.error('Erro ao carregar estatísticas:', error);
+            }
+        }
+
+        // Função para buscar cadastros
+        async function buscarCadastros() {
+            const loading = document.getElementById('loading');
+            const error = document.getElementById('error');
+            const empty = document.getElementById('empty');
+            const tabela = document.getElementById('tabelaCadastros');
+
+            // Mostrar loading
+            loading.style.display = 'block';
+            error.style.display = 'none';
+            empty.style.display = 'none';
+            tabela.style.display = 'none';
+
+            try {
+                // Construir URL com filtros
+                const params = new URLSearchParams();
+                const nome = document.getElementById('filtroNome').value.trim();
+                const interesse = document.getElementById('filtroInteresse').value;
+                
+                if (nome) params.append('nome', nome);
+                if (interesse) params.append('interesse', interesse);
+                
+                params.append('limit', itensPorPagina);
+                params.append('offset', (paginaAtual - 1) * itensPorPagina);
+
+                const response = await fetch(`${API_BASE}/api/cadastros?${params}`, {
+                    headers: getAuthHeaders()
+                });
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        logout();
+                        return;
+                    }
+                    throw new Error('Erro ao buscar cadastros');
+                }
+
+                const cadastros = await response.json();
+                cadastrosCarregados = cadastros;
+
+                loading.style.display = 'none';
+
+                if (cadastros.length === 0) {
+                    empty.style.display = 'block';
+                } else {
+                    renderizarTabela(cadastros);
+                    tabela.style.display = 'table';
+                }
+
+                atualizarPaginacao(cadastros.length);
+
+            } catch (error) {
+                console.error('Erro ao buscar cadastros:', error);
+                loading.style.display = 'none';
+                error.style.display = 'block';
+                error.textContent = 'Erro ao carregar cadastros: ' + error.message;
+            }
+        }
+
+        // Função para renderizar a tabela
+        function renderizarTabela(cadastros) {
+            const corpo = document.getElementById('corpoTabela');
+            corpo.innerHTML = '';
+
+            cadastros.forEach(cadastro => {
+                const row = document.createElement('tr');
+                
+                const dataFormatada = new Date(cadastro.created_at).toLocaleDateString('pt-BR');
+                
+                row.innerHTML = `
+                    <td><strong>${cadastro.nome}</strong></td>
+                    <td>${cadastro.telefone}</td>
+                    <td>${cadastro.email || 'Não informado'}</td>
+                    <td>${cadastro.interesse || 'Não informado'}</td>
+                    <td>${dataFormatada}</td>
+                    <td class="actions">
+                        <button class="btn btn-success" onclick="verDetalhes('${cadastro.id}')">Ver</button>
+                        <button class="btn btn-danger" onclick="confirmarExclusao('${cadastro.id}', '${cadastro.nome}')">Excluir</button>
+                    </td>
+                `;
+                
+                corpo.appendChild(row);
+            });
+        }
+
+        // Função para ver detalhes
+        function verDetalhes(id) {
+            const cadastro = cadastrosCarregados.find(c => c.id === id);
+            if (!cadastro) return;
+
+            const conteudo = document.getElementById('detalhesConteudo');
+            conteudo.innerHTML = `
+                <div class="detail-row">
+                    <div class="detail-label">Nome:</div>
+                    <div class="detail-value">${cadastro.nome}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Telefone:</div>
+                    <div class="detail-value">${cadastro.telefone}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">E-mail:</div>
+                    <div class="detail-value">${cadastro.email || 'Não informado'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Data Nascimento:</div>
+                    <div class="detail-value">${cadastro.data_nascimento ? new Date(cadastro.data_nascimento).toLocaleDateString('pt-BR') : 'Não informado'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Endereço:</div>
+                    <div class="detail-value">${cadastro.endereco || 'Não informado'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Possui Igreja:</div>
+                    <div class="detail-value">${cadastro.possui_igreja || 'Não informado'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Qual Igreja:</div>
+                    <div class="detail-value">${cadastro.qual_igreja || 'Não informado'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Como Conheceu:</div>
+                    <div class="detail-value">${cadastro.como_conheceu || 'Não informado'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Interesse:</div>
+                    <div class="detail-value">${cadastro.interesse || 'Não informado'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Observações:</div>
+                    <div class="detail-value">${cadastro.observacoes || 'Nenhuma observação'}</div>
+                </div>
+                <div class="detail-row">
+                    <div class="detail-label">Data Cadastro:</div>
+                    <div class="detail-value">${new Date(cadastro.created_at).toLocaleString('pt-BR')}</div>
+                </div>
+            `;
+
+            document.getElementById('modalDetalhes').style.display = 'block';
+        }
+
+        // Função para fechar modal
+        function fecharModal() {
+            document.getElementById('modalDetalhes').style.display = 'none';
+        }
+
+        // Função para confirmar exclusão
+        function confirmarExclusao(id, nome) {
+            if (confirm(`Tem certeza que deseja excluir o cadastro de "${nome}"?`)) {
+                excluirCadastro(id);
+            }
+        }
+
+        // Função para excluir cadastro
+        async function excluirCadastro(id) {
+            try {
+                const response = await fetch(`${API_BASE}/api/cadastro/${id}`, {
+                    method: 'DELETE',
+                    headers: getAuthHeaders()
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401) {
+                        logout();
+                        return;
+                    }
+                    throw new Error('Erro ao excluir cadastro');
+                }
+
+                alert('Cadastro excluído com sucesso!');
+                buscarCadastros();
+                carregarEstatisticas();
+            } catch (error) {
+                console.error('Erro ao excluir:', error);
+                alert('Erro ao excluir cadastro: ' + error.message);
+            }
+        }
+
+        // Função para limpar filtros
+        function limparFiltros() {
+            document.getElementById('filtroNome').value = '';
+            document.getElementById('filtroInteresse').value = '';
+            paginaAtual = 1;
+            buscarCadastros();
+        }
+
+        // Funções de paginação
+        function proximaPagina() {
+            paginaAtual++;
+            buscarCadastros();
+        }
+
+        function paginaAnterior() {
+            if (paginaAtual > 1) {
+                paginaAtual--;
+                buscarCadastros();
+            }
+        }
+
+        function atualizarPaginacao(itensCarregados) {
+            const btnAnterior = document.getElementById('btnAnterior');
+            const btnProximo = document.getElementById('btnProximo');
+            const paginaInfo = document.getElementById('paginaInfo');
+
+            btnAnterior.disabled = paginaAtual === 1;
+            btnProximo.disabled = itensCarregados < itensPorPagina;
+            
+            paginaInfo.textContent = `Página ${paginaAtual}`;
+        }
+
+        // Fechar modal clicando fora
+        window.onclick = function(event) {
+            const modal = document.getElementById('modalDetalhes');
+            if (event.target === modal) {
+                fecharModal();
+            }
+        }
+
+        // Buscar ao pressionar Enter
+        document.getElementById('filtroNome').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                buscarCadastros();
+            }
+        });
+    </script>
+</body>
+</html>
