@@ -12,17 +12,15 @@ from contextlib import asynccontextmanager
 # Configuração do banco
 DATABASE_URL = os.getenv("DATABASE_URL", "postgres://neondb_owner:npg_EuloKk2PDvj3@ep-steep-morning-acb05ltn-pooler.sa-east-1.aws.neon.tech/neondb?sslmode=require")
 
-# Pool de conexões
-pool = None
+# Função para obter conexão
+async def get_connection():
+    return await asyncpg.connect(DATABASE_URL)
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    global pool
-    pool = await asyncpg.create_pool(DATABASE_URL, min_size=1, max_size=10)
-    
-    # Criar tabela
-    async with pool.acquire() as conn:
+    # Startup - Criar tabela
+    conn = await get_connection()
+    try:
         await conn.execute("""
             CREATE TABLE IF NOT EXISTS cadastros (
                 id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -40,11 +38,10 @@ async def lifespan(app: FastAPI):
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             );
         """)
+    finally:
+        await conn.close()
     
     yield
-    
-    # Shutdown
-    await pool.close()
 
 # FastAPI app
 app = FastAPI(
@@ -123,8 +120,8 @@ async def root():
 @app.post("/api/cadastro", response_model=dict)
 async def criar_cadastro(cadastro: CadastroCreate):
     """Criar novo cadastro"""
+    conn = await get_connection()
     try:
-        async with pool.acquire() as conn:
             # Verificar se telefone já existe
             existing = await conn.fetchrow(
                 "SELECT id FROM cadastros WHERE telefone = $1",
@@ -162,6 +159,8 @@ async def criar_cadastro(cadastro: CadastroCreate):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+    finally:
+        await conn.close()
 
 @app.get("/api/cadastros", response_model=List[CadastroResponse])
 async def listar_cadastros(
@@ -171,8 +170,8 @@ async def listar_cadastros(
     interesse: Optional[str] = None
 ):
     """Listar cadastros com filtros opcionais"""
+    conn = await get_connection()
     try:
-        async with pool.acquire() as conn:
             # Construir query com filtros
             where_conditions = []
             params = []
@@ -212,12 +211,14 @@ async def listar_cadastros(
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+    finally:
+        await conn.close()
 
 @app.get("/api/cadastro/{cadastro_id}", response_model=CadastroResponse)
 async def obter_cadastro(cadastro_id: uuid.UUID):
     """Obter cadastro por ID"""
+    conn = await get_connection()
     try:
-        async with pool.acquire() as conn:
             row = await conn.fetchrow(
                 "SELECT * FROM cadastros WHERE id = $1",
                 cadastro_id
@@ -232,12 +233,14 @@ async def obter_cadastro(cadastro_id: uuid.UUID):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+    finally:
+        await conn.close()
 
 @app.put("/api/cadastro/{cadastro_id}", response_model=dict)
 async def atualizar_cadastro(cadastro_id: uuid.UUID, cadastro: CadastroUpdate):
     """Atualizar cadastro existente"""
+    conn = await get_connection()
     try:
-        async with pool.acquire() as conn:
             # Verificar se cadastro existe
             existing = await conn.fetchrow(
                 "SELECT id FROM cadastros WHERE id = $1",
@@ -296,12 +299,14 @@ async def atualizar_cadastro(cadastro_id: uuid.UUID, cadastro: CadastroUpdate):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+    finally:
+        await conn.close()
 
 @app.delete("/api/cadastro/{cadastro_id}", response_model=dict)
 async def deletar_cadastro(cadastro_id: uuid.UUID):
     """Deletar cadastro"""
+    conn = await get_connection()
     try:
-        async with pool.acquire() as conn:
             result = await conn.fetchrow(
                 "DELETE FROM cadastros WHERE id = $1 RETURNING id",
                 cadastro_id
@@ -319,12 +324,14 @@ async def deletar_cadastro(cadastro_id: uuid.UUID):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+    finally:
+        await conn.close()
 
 @app.get("/api/stats")
 async def obter_estatisticas():
     """Estatísticas dos cadastros"""
+    conn = await get_connection()
     try:
-        async with pool.acquire() as conn:
             # Total de cadastros
             total_result = await conn.fetchrow("SELECT COUNT(*) as total FROM cadastros")
             total_cadastros = total_result["total"]
@@ -374,13 +381,18 @@ async def obter_estatisticas():
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro interno: {str(e)}")
+    finally:
+        await conn.close()
 
 @app.get("/health")
 async def health_check():
     """Health check"""
     try:
-        async with pool.acquire() as conn:
+        conn = await get_connection()
+        try:
             await conn.fetchrow("SELECT 1")
+        finally:
+            await conn.close()
         
         return {
             "status": "healthy",
